@@ -1,0 +1,20 @@
+[
+  {
+    "Site": "https://www.riotgames.com/pt-br",
+    "Nome": "League of Legends",
+    "Usuario": "Detonador Arrasador",
+    "SenhaCriptografada": "pShcZsZSTcFBnOKWSGgMSz8BUaonGtaJ42YKyTUzT3U="
+  },
+  {
+    "Site": "www.outlook.com",
+    "Nome": "Microsoft",
+    "Usuario": "Mestre da Inform\u00E1tica",
+    "SenhaCriptografada": "vDnqpLCo+NstMjAd75/1Iv6PtKxPlotHSNdLPLuWSyroqryMoax5aixh+uhjQt4c"
+  },
+  {
+    "Site": "www.google.com.br",
+    "Nome": "Google Drive",
+    "Usuario": "Nerd Hacker",
+    "SenhaCriptografada": "V5LG3f1oNScTMzvje+KQsasT88IhTO5OXGSWsx76JGK/ZhgEOwZyb3MvMkzO1bt7"
+  }
+]
