@@ -7,7 +7,7 @@ namespace Gerenciador_de_Senhas;
 
 public class FormVisualizar : Form {
     private byte[] chaveMestra;
-    private DataGridView grid;
+    private FlowLayoutPanel containerPrincipal;
     private TextBox txtBusca;
 
     public FormVisualizar(byte[] chave) {
@@ -17,126 +17,180 @@ public class FormVisualizar : Form {
     }
 
     private void ConfigurarInterface() {
-        this.Text = "Gerenciador de Dados";
-        this.Size = new Size(850, 550);
+        this.Text = "Visualizar e Editar Dados";
+        this.Size = new Size(750, 750);
         this.StartPosition = FormStartPosition.CenterParent;
+        this.BackColor = Color.White;
 
-        Panel painelBusca = new Panel { Dock = DockStyle.Top, Height = 60, BackColor = Color.FromArgb(240, 240, 240) };
-        Label lblBusca = new Label { Text = "Buscar (Site ou Conta):", Location = new Point(15, 20), AutoSize = true, Font = new Font("Segoe UI", 9, FontStyle.Bold) };
-        txtBusca = new TextBox { Location = new Point(160, 18), Width = 300 };
+        // --- Painel Superior (Busca + Botão Gerar Senha) ---
+        Panel painelTopo = new Panel { Dock = DockStyle.Top, Height = 70, BackColor = Color.FromArgb(240, 240, 240) };
+        
+        Label lblBusca = new Label { Text = "Buscar:", Location = new Point(20, 26), AutoSize = true, Font = new Font("Segoe UI", 10, FontStyle.Bold) };
+        txtBusca = new TextBox { Location = new Point(80, 24), Width = 300, Font = new Font("Segoe UI", 10), BorderStyle = BorderStyle.FixedSingle };
         txtBusca.TextChanged += (s, e) => CarregarDados(txtBusca.Text);
 
-        painelBusca.Controls.Add(lblBusca);
-        painelBusca.Controls.Add(txtBusca);
-
-        grid = new DataGridView {
-            Dock = DockStyle.Fill,
-            AllowUserToAddRows = false,
-            ReadOnly = true,
-            SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-            AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-            RowHeadersVisible = false,
-            BackgroundColor = Color.White
-        };
-
-        grid.Columns.Add("Site", "Site / URL");
-        grid.Columns.Add("Nome", "Nome da Conta");
-        grid.Columns.Add("Usuario", "Usuário");
-        grid.Columns.Add("Senha", "Senha (Criptografada)");
-
-        Panel painelAcoes = new Panel { Dock = DockStyle.Right, Width = 150, BackColor = Color.FromArgb(230, 230, 230) };
-        
-        // Botão Ver Senha
-        Button btnVer = CriarBotaoAcao("Ver Senha", Color.DarkCyan, 20);
-        btnVer.Click += VerSenha_Click;
-
-        // --- O BOTÃO QUE ESTAVA FALTANDO ---
-        Button btnGerar = CriarBotaoAcao("Gerar Senha", Color.MediumPurple, 80);
-        btnGerar.Click += (s, e) => {
-            using (var frmGerador = new FormGerador()) {
-                frmGerador.ShowDialog();
-            }
-        };
-
-        // Botão Editar (Ajustado o Y para 140)
-        Button btnEditar = CriarBotaoAcao("Editar", Color.DodgerBlue, 140);
-        btnEditar.Click += Editar_Click;
-
-        // Botão Excluir (Ajustado o Y para 200)
-        Button btnExcluir = CriarBotaoAcao("Excluir", Color.Crimson, 200);
-        btnExcluir.Click += Excluir_Click;
-
-        painelAcoes.Controls.AddRange(new Control[] { btnVer, btnGerar, btnEditar, btnExcluir });
-
-        this.Controls.Add(grid);
-        this.Controls.Add(painelAcoes);
-        this.Controls.Add(painelBusca);
-    }
-
-    private Button CriarBotaoAcao(string texto, Color cor, int y) {
-        return new Button {
-            Text = texto,
-            Location = new Point(15, y),
-            Size = new Size(120, 45),
-            BackColor = cor,
+        Button btnGerarSenha = new Button {
+            Text = "🔑 GERAR SENHA",
+            Location = new Point(540, 18),
+            Size = new Size(160, 35),
+            BackColor = Color.MediumSeaGreen,
             ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat,
-            Font = new Font("Segoe UI", 9, FontStyle.Bold)
+            Font = new Font("Segoe UI", 9, FontStyle.Bold),
+            Cursor = Cursors.Hand
         };
+        btnGerarSenha.Click += (s, e) => {
+            new FormGerador().ShowDialog();
+        };
+
+        painelTopo.Controls.Add(lblBusca);
+        painelTopo.Controls.Add(txtBusca);
+        painelTopo.Controls.Add(btnGerarSenha);
+
+        // --- Container Principal (Scroll) ---
+        containerPrincipal = new FlowLayoutPanel {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.TopDown,
+            WrapContents = false,
+            AutoScroll = true,
+            Padding = new Padding(30, 20, 30, 20),
+            BackColor = Color.White
+        };
+
+        this.Controls.Add(containerPrincipal);
+        this.Controls.Add(painelTopo);
     }
 
     private void CarregarDados(string termo) {
-        grid.Rows.Clear();
+        containerPrincipal.Controls.Clear();
         var lista = DatabaseHelper.BuscarSenhas(termo);
+
         foreach (var item in lista) {
-            int n = grid.Rows.Add(item.Site, item.Nome, item.Usuario, "********");
-            grid.Rows[n].Tag = Convert.ToBase64String(item.SenhaCriptografada);
-        }
-    }
-
-    private void VerSenha_Click(object sender, EventArgs e) {
-        if (grid.SelectedRows.Count > 0) {
-            var linha = grid.SelectedRows[0];
-            byte[] dadosCripto = Convert.FromBase64String(linha.Tag.ToString());
-            string senhaReal = CryptoHelper.Descriptografar(dadosCripto, chaveMestra);
-
-            var celulaSenha = linha.Cells[3];
-            if (celulaSenha.Value.ToString() == "********") {
-                celulaSenha.Value = senhaReal;
-            } else {
-                celulaSenha.Value = "********";
+            string senhaReal = "";
+            try {
+                senhaReal = CryptoHelper.Descriptografar(item.SenhaCriptografada, chaveMestra);
+            } catch {
+                senhaReal = "ERRO_DESCRIPTOGRAFIA";
             }
-        }
-    }
 
-    private void Excluir_Click(object sender, EventArgs e) {
-        if (grid.SelectedRows.Count > 0) {
-            var linha = grid.SelectedRows[0];
-            string site = linha.Cells[0].Value.ToString();
-            string usuario = linha.Cells[2].Value.ToString();
+            // Agrupador invisível para a conta específica
+            FlowLayoutPanel painelConta = new FlowLayoutPanel {
+                FlowDirection = FlowDirection.TopDown,
+                AutoSize = true,
+                WrapContents = false,
+                Margin = new Padding(0, 0, 0, 10)
+            };
 
-            var resp = MessageBox.Show($"Deseja excluir a conta '{usuario}' de '{site}'?", "Confirmação", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
-            if (resp == DialogResult.Yes) {
-                DatabaseHelper.ExcluirSenha(site, usuario);
-                CarregarDados(txtBusca.Text);
-            }
-        }
-    }
+            // Adiciona os campos padrão
+            painelConta.Controls.Add(CriarLinhaInput("Site:", item.Site, false, false, painelConta));
+            painelConta.Controls.Add(CriarLinhaInput("Nome:", item.Nome, false, false, painelConta));
+            painelConta.Controls.Add(CriarLinhaInput("Usuário:", item.Usuario, false, false, painelConta));
+            painelConta.Controls.Add(CriarLinhaInput("Senha:", senhaReal, true, false, painelConta));
 
-    private void Editar_Click(object sender, EventArgs e) {
-        if (grid.SelectedRows.Count > 0) {
-            var linha = grid.SelectedRows[0];
-            string site = linha.Cells[0].Value.ToString();
-            string nome = linha.Cells[1].Value.ToString();
-            string usuario = linha.Cells[2].Value.ToString();
+            // Painel para os botões de adicionar (ficam em baixo dos inputs da conta)
+            FlowLayoutPanel painelBotoes = new FlowLayoutPanel {
+                AutoSize = true,
+                FlowDirection = FlowDirection.LeftToRight,
+                Margin = new Padding(130, 5, 0, 10) // Alinha os botões com as caixas de texto
+            };
+
+            Button btnAddTexto = CriarBotaoAcao("+ Campo Texto", Color.DodgerBlue);
+            btnAddTexto.Click += (s, e) => AdicionarCampoExtraNaConta("Nome do Campo", false, painelConta);
+
+            Button btnAddSenha = CriarBotaoAcao("+ Senha Extra", Color.MediumPurple);
+            btnAddSenha.Click += (s, e) => AdicionarCampoExtraNaConta("Nome da Senha", true, painelConta);
+
+            painelBotoes.Controls.Add(btnAddTexto);
+            painelBotoes.Controls.Add(btnAddSenha);
             
-            byte[] dadosCripto = Convert.FromBase64String(linha.Tag.ToString());
-            string senha = CryptoHelper.Descriptografar(dadosCripto, chaveMestra);
+            // Adiciona os botões no final do bloco da conta
+            painelConta.Controls.Add(painelBotoes);
 
-            using (var frmEditar = new FormEditar(site, nome, usuario, senha, chaveMestra)) {
-                frmEditar.ShowDialog();
-                if (frmEditar.DadosSalvos) CarregarDados(txtBusca.Text);
-            }
+            // Adiciona a conta inteira ao layout principal
+            containerPrincipal.Controls.Add(painelConta);
+
+            // Linha divisória entre as contas
+            Panel separador = new Panel {
+                Width = 650,
+                Height = 2,
+                BackColor = Color.FromArgb(220, 220, 220),
+                Margin = new Padding(0, 15, 0, 25)
+            };
+            containerPrincipal.Controls.Add(separador);
         }
+
+        if (lista.Count == 0) {
+            containerPrincipal.Controls.Add(new Label { Text = "Nenhum dado encontrado.", AutoSize = true, ForeColor = Color.Gray });
+        }
+    }
+
+    private void AdicionarCampoExtraNaConta(string placeholder, bool ehSenha, FlowLayoutPanel painelConta) {
+        Panel novaLinha = CriarLinhaInput(placeholder, "", ehSenha, true, painelConta);
+        painelConta.Controls.Add(novaLinha);
+        // Move a nova linha para ficar LOGO ACIMA do painel de botões
+        painelConta.Controls.SetChildIndex(novaLinha, painelConta.Controls.Count - 2);
+    }
+
+    private Panel CriarLinhaInput(string labelTexto, string valor, bool ehSenha, bool removivel, FlowLayoutPanel parentContainer) {
+        Panel linha = new Panel { Width = 680, Height = 45, Margin = new Padding(0, 5, 0, 5) };
+        Control elementoNomeDoCampo;
+
+        if (removivel) {
+            // Campo Extra: Caixa de texto para o usuário digitar o nome do campo (ex: PIN)
+            elementoNomeDoCampo = new TextBox { 
+                Text = labelTexto, Location = new Point(0, 8), Width = 120, 
+                Font = new Font("Segoe UI", 10, FontStyle.Bold), BorderStyle = BorderStyle.FixedSingle, BackColor = Color.LightYellow 
+            };
+        } else {
+            // Campo Padrão: Texto fixo
+            elementoNomeDoCampo = new Label { 
+                Text = labelTexto, Location = new Point(0, 10), Width = 120, 
+                Font = new Font("Segoe UI", 10, FontStyle.Bold) 
+            };
+        }
+
+        TextBox txtValor = new TextBox { 
+            Text = valor, Location = new Point(130, 8), Width = 350, 
+            Font = new Font("Segoe UI", 10), PasswordChar = ehSenha ? '*' : '\0', BorderStyle = BorderStyle.FixedSingle
+        };
+
+        linha.Controls.Add(elementoNomeDoCampo);
+        linha.Controls.Add(txtValor);
+
+        int proximoX = 490;
+
+        // Botão Olho (👁️)
+        if (ehSenha) {
+            Button btnOlho = new Button { Text = "👁️", Location = new Point(proximoX, 6), Size = new Size(40, 30), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand };
+            btnOlho.Click += (s, e) => txtValor.PasswordChar = (txtValor.PasswordChar == '*' ? '\0' : '*');
+            linha.Controls.Add(btnOlho);
+            proximoX += 45;
+        }
+
+        // Botão Excluir (X)
+        if (removivel) {
+            Button btnExcluir = new Button {
+                Text = "X", Location = new Point(proximoX, 6), Size = new Size(40, 30), 
+                BackColor = Color.Crimson, ForeColor = Color.White, FlatStyle = FlatStyle.Flat, 
+                Font = new Font("Arial", 10, FontStyle.Bold), Cursor = Cursors.Hand
+            };
+            btnExcluir.Click += (s, e) => parentContainer.Controls.Remove(linha);
+            linha.Controls.Add(btnExcluir);
+        }
+
+        return linha;
+    }
+
+    private Button CriarBotaoAcao(string texto, Color cor) {
+        return new Button {
+            Text = texto,
+            Size = new Size(130, 30),
+            BackColor = cor,
+            ForeColor = Color.White,
+            FlatStyle = FlatStyle.Flat,
+            Font = new Font("Segoe UI", 9, FontStyle.Bold),
+            Cursor = Cursors.Hand,
+            Margin = new Padding(0, 0, 10, 0)
+        };
     }
 }
